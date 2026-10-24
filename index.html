@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi TV Leanback Launcher</title>
+<style>
+  :root {
+    --accent: #3b82f6;
+    --accent-glow: rgba(59, 130, 246, 0.45);
+    --bg-dark: #0a0b10;
+    --card-bg: rgba(255, 255, 255, 0.06);
+    --card-border: rgba(255, 255, 255, 0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  body {
+    background-color: var(--bg-dark);
+    color: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 30px 60px;
+    position: relative;
+  }
+  .backdrop-layer {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.25;
+    filter: blur(40px);
+    transition: background 0.8s ease, opacity 0.8s ease;
+    z-index: 0;
+  }
+  header {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+  }
+  .clock { font-size: 32px; font-weight: 700; letter-spacing: 1px; }
+  .tab-bar {
+    display: flex;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 6px 10px;
+    border-radius: 30px;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .tab-btn {
+    background: transparent;
+    border: none;
+    color: #a1a1aa;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 8px 22px;
+    border-radius: 20px;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s ease;
+  }
+  .tab-btn.active, .tab-btn:focus {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.22);
+    box-shadow: 0 0 15px var(--accent-glow);
+  }
+  .content-area {
+    position: relative;
+    z-index: 10;
+    flex: 1;
+    overflow: hidden;
+  }
+  .tab-view { display: none; height: 100%; flex-direction: column; gap: 24px; }
+  .tab-view.active { display: flex; }
+  .row-title { font-size: 20px; font-weight: 600; color: #d4d4d8; margin-bottom: 12px; }
+  .cards-row { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 15px; scrollbar-width: none; }
+  .cards-row::-webkit-scrollbar { display: none; }
+  .card {
+    background: var(--card-bg);
+    border: 2px solid var(--card-border);
+    border-radius: 18px;
+    padding: 20px;
+    min-width: 190px;
+    height: 125px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    outline: none;
+    cursor: pointer;
+    transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.25s, border-color 0.25s;
+    backdrop-filter: blur(12px);
+  }
+  .card span { font-size: 17px; font-weight: 600; }
+  .card .sub { font-size: 12px; color: #a1a1aa; }
+  .card:focus {
+    transform: scale(1.1);
+    border-color: #ffffff;
+    background: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 14px 35px var(--accent-glow);
+  }
+  .score-card { min-width: 260px; height: 125px; align-items: flex-start; }
+  .score-header { display: flex; justify-content: space-between; width: 100%; font-size: 12px; color: #ef4444; font-weight: 700; }
+  .score-body { font-size: 18px; font-weight: 700; margin: 4px 0; }
+  .screensaver {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #000;
+    z-index: 100;
+    display: none;
+    opacity: 0;
+    transition: opacity 1.2s ease;
+  }
+  .screensaver.active { display: block; opacity: 1; }
+  .screensaver-img {
+    width: 100%; height: 100%; object-fit: cover;
+    animation: panZoom 25s infinite alternate ease-in-out;
+  }
+  .screensaver-meta {
+    position: absolute; bottom: 40px; left: 60px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 12px 24px; border-radius: 16px;
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+  @keyframes panZoom {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.15) translate(-15px, -10px); }
+  }
+</style>
+</head>
+<body>
+  <div class="backdrop-layer" id="backdrop"></div>
+  <header>
+    <div class="clock" id="clock">12:00 PM</div>
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="home" tabindex="0">Home</button>
+      <button class="tab-btn" data-tab="cinema" tabindex="0">Cinema</button>
+      <button class="tab-btn" data-tab="sports" tabindex="0">Live Sports</button>
+      <button class="tab-btn" data-tab="photos" tabindex="0">Photos</button>
+    </div>
+  </header>
+
+  <div class="content-area">
+    <!-- HOME VIEW -->
+    <div class="tab-view active" id="view-home">
+      <div>
+        <div class="row-title">Apps</div>
+        <div class="cards-row">
+          <div class="card" tabindex="0" data-app="youtube"><span>YouTube</span><span class="sub">4K HDR</span></div>
+          <div class="card" tabindex="0" data-app="netflix"><span>Netflix</span><span class="sub">Dolby Vision</span></div>
+          <div class="card" tabindex="0" data-app="prime"><span>Prime Video</span><span class="sub">Originals</span></div>
+          <div class="card" tabindex="0" data-app="hotstar"><span>Disney+ Hotstar</span><span class="sub">Live & Cinema</span></div>
+          <div class="card" tabindex="0" data-app="plex"><span>Plex</span><span class="sub">Media Server</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="row-title">Inputs & System</div>
+        <div class="cards-row">
+          <div class="card" tabindex="0"><span>HDMI 1</span><span class="sub">PlayStation 5</span></div>
+          <div class="card" tabindex="0"><span>HDMI 2</span><span class="sub">eARC / Soundbar</span></div>
+          <div class="card" tabindex="0"><span>Settings</span><span class="sub">Android TV</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CINEMA VIEW -->
+    <div class="tab-view" id="view-cinema">
+      <div>
+        <div class="row-title">Trending Movies</div>
+        <div class="cards-row">
+          <div class="card" tabindex="0" data-provider="netflix" data-id="81435684"><span>Oppenheimer</span><span class="sub">Prime Video • 4K</span></div>
+          <div class="card" tabindex="0" data-provider="prime" data-id="B0CQZ1S7"><span>Dune: Part Two</span><span class="sub">Dolby Atmos</span></div>
+          <div class="card" tabindex="0" data-provider="netflix" data-id="81177504"><span>Spider-Verse</span><span class="sub">Netflix • HDR</span></div>
+          <div class="card" tabindex="0" data-provider="prime" data-id="B00I3MQV"><span>Interstellar</span><span class="sub">IMDb 8.7</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SPORTS VIEW -->
+    <div class="tab-view" id="view-sports">
+      <div>
+        <div class="row-title">Live Match Scores</div>
+        <div class="cards-row">
+          <div class="card score-card" tabindex="0">
+            <div class="score-header"><span>LIVE • T20 CRICKET</span><span>18.4 Ovs</span></div>
+            <div class="score-body">IND 184/3 vs AUS</div>
+            <div class="sub">IND need 12 off 8 balls (RRR: 9.0)</div>
+          </div>
+          <div class="card score-card" tabindex="0">
+            <div class="score-header"><span>LIVE • PREMIER LEAGUE</span><span>76'</span></div>
+            <div class="score-body">Arsenal 2 - 1 Chelsea</div>
+            <div class="sub">Saka (32', 58') • Jackson (64')</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHOTOS VIEW -->
+    <div class="tab-view" id="view-photos">
+      <div>
+        <div class="row-title">Family Memories</div>
+        <div class="cards-row">
+          <div class="card" tabindex="0"><span>Summer Trip 2024</span><span class="sub">124 Photos</span></div>
+          <div class="card" tabindex="0"><span>Festivals & Family</span><span class="sub">86 Photos</span></div>
+          <div class="card" tabindex="0"><span>Local Storage</span><span class="sub">/sdcard/DCIM</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AMBIENT ART SCREENSAVER -->
+  <div class="screensaver" id="screensaver">
+    <img class="screensaver-img" id="saver-img" src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80" alt="Landscape">
+    <div class="screensaver-meta">
+      <h3 style="font-size: 20px;">Yosemite Valley, California</h3>
+      <p style="font-size: 14px; color: #d4d4d8;">Ambient Art Gallery</p>
+    </div>
+  </div>
+
+<script>
+  function updateClock() {
+    const d = new Date();
+    document.getElementById('clock').innerText = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // Tab switching
+  const tabs = document.querySelectorAll('.tab-btn');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-' + tab.dataset.tab).classList.add('active');
+      const firstCard = document.querySelector('#view-' + tab.dataset.tab + ' .card
