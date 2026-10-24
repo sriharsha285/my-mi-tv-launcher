@@ -1,49 +1,966 @@
-name: Build TV Launcher APK
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mi TV Pro Leanback Launcher</title>
+<style>
+  :root {
+    --accent: #e50914;
+    --accent-glow: rgba(229, 9, 20, 0.55);
+    --bg-base: #07080c;
+    --glass: rgba(20, 22, 30, 0.65);
+    --glass-border: rgba(255, 255, 255, 0.14);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+  body {
+    background-color: var(--bg-base);
+    color: #ffffff;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+  }
 
-on:
-  push:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
+  /* FULL-BLEED DYNAMIC FANART BACKDROP */
+  .fanart-container {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .fanart-img {
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center 20%;
+    transition: background-image 0.6s ease-in-out, transform 0.8s ease;
+    transform: scale(1.03);
+  }
+  .fanart-vignette {
+    position: absolute;
+    inset: 0;
+    background: 
+      linear-gradient(90deg, #07080c 0%, rgba(7,8,12,0.88) 38%, rgba(7,8,12,0.25) 100%),
+      linear-gradient(0deg, #07080c 0%, rgba(7,8,12,0.92) 32%, rgba(7,8,12,0.15) 75%, rgba(7,8,12,0.7) 100%);
+  }
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+  /* MAIN LAYOUT */
+  .ui-layer {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 36px 56px;
+  }
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
+  /* TOP NAVIGATION BAR */
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .brand-pill {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #fff;
+  }
+  .brand-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+  }
+  .nav-pills {
+    display: flex;
+    gap: 10px;
+    background: var(--glass);
+    padding: 6px 10px;
+    border-radius: 40px;
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(20px);
+  }
+  .nav-tab {
+    background: transparent;
+    border: 2px solid transparent;
+    color: #a1a1aa;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 8px 24px;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .nav-tab.active-tab {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.14);
+  }
+  .nav-tab.focused {
+    color: #fff;
+    border-color: #fff;
+    background: var(--accent);
+    box-shadow: 0 0 20px var(--accent-glow);
+    transform: scale(1.06);
+  }
+  .top-right {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .saver-trigger {
+    background: var(--glass);
+    border: 2px solid var(--glass-border);
+    color: #e4e4e7;
+    padding: 8px 16px;
+    border-radius: 24px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .saver-trigger.focused {
+    border-color: #fff;
+    background: #2563eb;
+    transform: scale(1.08);
+  }
+  .clock {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
+  /* HERO STAGE (TOP SHELF SPOTLIGHT) */
+  .hero-stage {
+    max-width: 650px;
+    margin-top: 10px;
+    margin-bottom: auto;
+    padding-top: 18px;
+    transition: opacity 0.25s ease;
+  }
+  .hero-badge-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .badge-pill {
+    background: var(--accent);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  .badge-meta {
+    font-size: 14px;
+    font-weight: 600;
+    color: #d4d4d8;
+  }
+  .hero-title {
+    font-size: 46px;
+    font-weight: 800;
+    line-height: 1.08;
+    margin-bottom: 10px;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.8);
+  }
+  .hero-desc {
+    font-size: 16px;
+    color: #d4d4d8;
+    line-height: 1.45;
+    margin-bottom: 20px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .hero-actions {
+    display: flex;
+    gap: 14px;
+  }
+  .hero-btn {
+    background: rgba(255, 255, 255, 0.14);
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    color: #fff;
+    padding: 12px 26px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+  }
+  .hero-btn.primary {
+    background: #ffffff;
+    color: #090a0f;
+  }
+  .hero-btn.focused {
+    transform: scale(1.08);
+    border-color: #ffffff;
+    background: var(--accent);
+    color: #ffffff;
+    box-shadow: 0 8px 28px var(--accent-glow);
+  }
 
-      - name: Initialize Capacitor Project
-        run: |
-          mkdir -p www
-          cp index.html www/
-          npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android
-          npx cap init "MyTVLauncher" "com.custom.mitvlauncher" --web-dir www
-          npx cap add android
+  /* CONTENT ROWS */
+  .rows-viewport {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .row-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .row-header {
+    font-size: 18px;
+    font-weight: 700;
+    color: #e4e4e7;
+    letter-spacing: 0.4px;
+  }
+  .cards-track {
+    display: flex;
+    gap: 18px;
+    overflow-x: auto;
+    padding: 10px 6px 14px 6px;
+    scrollbar-width: none;
+  }
+  .cards-track::-webkit-scrollbar { display: none; }
 
-      - name: Configure Android TV Launcher Permissions
-        run: |
-          sed -i '/<category android:name="android.intent.category.LAUNCHER" \/>/a \                <category android:name="android.intent.category.LEANBACK_LAUNCHER" \/>\n                <category android:name="android.intent.category.HOME" \/>\n                <category android:name="android.intent.category.DEFAULT" \/>' android/app/src/main/AndroidManifest.xml
+  /* CARDS */
+  .tv-card {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #14161f;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1), border-color 0.22s, box-shadow 0.22s;
+  }
+  .tv-card.app-card {
+    width: 210px;
+    height: 125px;
+  }
+  .tv-card.movie-card {
+    width: 240px;
+    height: 140px;
+  }
+  .tv-card.sport-card {
+    width: 290px;
+    height: 140px;
+  }
+  .tv-card.photo-card {
+    width: 260px;
+    height: 150px;
+  }
+  .card-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.82;
+    transition: opacity 0.25s, transform 0.35s;
+  }
+  .card-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(0deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.1) 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 14px;
+  }
+  .card-tag {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .card-tag.live {
+    background: #dc2626;
+    border-color: #ef4444;
+  }
+  .card-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: #fff;
+  }
+  .card-sub {
+    font-size: 12px;
+    color: #a1a1aa;
+    margin-top: 2px;
+  }
+  .tv-card.focused {
+    transform: scale(1.11) translateY(-4px);
+    border-color: #ffffff;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.85), 0 0 22px var(--accent-glow);
+    z-index: 5;
+  }
+  .tv-card.focused .card-bg {
+    opacity: 1;
+    transform: scale(1.06);
+  }
 
-      - name: Build Debug APK
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
+  /* BUILT-IN VIDEO PLAYER MODAL */
+  .player-modal {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 200;
+    display: none;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .player-modal.open {
+    display: flex;
+  }
+  .player-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+  }
+  .player-hud {
+    position: relative;
+    z-index: 210;
+    margin-top: auto;
+    background: linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 60%, transparent 100%);
+    padding: 30px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .player-title {
+    font-size: 28px;
+    font-weight: 800;
+  }
+  .player-controls {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+  .player-btn {
+    background: rgba(255,255,255,0.16);
+    border: 2px solid rgba(255,255,255,0.25);
+    color: #fff;
+    padding: 10px 22px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .player-btn.focused {
+    background: var(--accent);
+    border-color: #fff;
+    transform: scale(1.08);
+  }
 
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: MiTVLauncher-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+  /* AMBIENT SCREENSAVER (PHOTOGRAPHER ART MODE) */
+  .ambient-modal {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 300;
+    display: none;
+  }
+  .ambient-modal.open {
+    display: block;
+  }
+  .ambient-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    animation: kenburns 24s infinite alternate ease-in-out;
+  }
+  .ambient-info {
+    position: absolute;
+    bottom: 48px;
+    left: 60px;
+    background: rgba(10, 12, 18, 0.72);
+    border: 1px solid rgba(255,255,255,0.18);
+    padding: 18px 28px;
+    border-radius: 18px;
+    backdrop-filter: blur(16px);
+  }
+  .ambient-loc { font-size: 24px; font-weight: 800; }
+  .ambient-author { font-size: 14px; color: #cbd5e1; margin-top: 4px; }
+  @keyframes kenburns {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.14) translate(-18px, -12px); }
+  }
+</style>
+</head>
+<body>
+
+  <!-- DYNAMIC FULL-SCREEN FANART -->
+  <div class="fanart-container">
+    <div class="fanart-img" id="fanart-bg"></div>
+    <div class="fanart-vignette"></div>
+  </div>
+
+  <!-- MAIN LAUNCHER UI -->
+  <div class="ui-layer">
+    <header class="top-bar">
+      <div class="brand-pill">
+        <div class="brand-dot" id="brand-dot"></div>
+        <span>MI TV STUDIO</span>
+      </div>
+      <nav class="nav-pills" id="nav-bar">
+        <button class="nav-tab active-tab" data-tab="home">Home</button>
+        <button class="nav-tab" data-tab="cinema">Cinema Mode</button>
+        <button class="nav-tab" data-tab="sports">Live Sports</button>
+        <button class="nav-tab" data-tab="photos">Family Photos</button>
+      </nav>
+      <div class="top-right">
+        <button class="saver-trigger" id="btn-ambient">Ambient Art</button>
+        <div class="clock" id="clock">12:00</div>
+      </div>
+    </header>
+
+    <!-- SPOTLIGHT HERO STAGE -->
+    <section class="hero-stage" id="hero-stage">
+      <div class="hero-badge-row">
+        <span class="badge-pill" id="hero-badge">FEATURED</span>
+        <span class="badge-meta" id="hero-meta">4K Dolby Vision • Atmos</span>
+      </div>
+      <h1 class="hero-title" id="hero-title">YouTube 4K</h1>
+      <p class="hero-desc" id="hero-desc">Watch trending 4K HDR creators, live streams, music, and gaming directly on your Mi TV.</p>
+      <div class="hero-actions" id="hero-actions">
+        <button class="hero-btn primary" id="hero-btn-primary">▶ Open Now</button>
+        <button class="hero-btn" id="hero-btn-trailer">🎬 Watch Preview Stream</button>
+      </div>
+    </section>
+
+    <!-- DYNAMIC ROWS -->
+    <main class="rows-viewport" id="rows-container"></main>
+  </div>
+
+  <!-- BUILT-IN CINEMA VIDEO PLAYER MODAL -->
+  <div class="player-modal" id="player-modal">
+    <video class="player-video" id="cinema-video" playsinline></video>
+    <div class="player-hud">
+      <div class="player-title" id="player-title">Now Playing</div>
+      <div class="player-controls">
+        <button class="player-btn" id="p-toggle">⏸ Pause</button>
+        <button class="player-btn" id="p-rew">⏪ -10s</button>
+        <button class="player-btn" id="p-fwd">⏩ +10s</button>
+        <button class="player-btn" id="p-close">✖ Exit Player</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AMBIENT PHOTOGRAPHER SCREENSAVER -->
+  <div class="ambient-modal" id="ambient-modal">
+    <img class="ambient-img" id="ambient-img" src="" alt="Ambient Art">
+    <div class="ambient-info">
+      <div class="ambient-loc" id="ambient-loc">Dolomites, Italy</div>
+      <div class="ambient-author" id="ambient-author">Shot by Max Rive • Press any key to wake</div>
+    </div>
+  </div>
+
+<script>
+const DATA = {
+  home: [
+    {
+      rowTitle: "Your Streaming Apps",
+      cardType: "app-card",
+      items: [
+        {
+          title: "YouTube", sub: "4K 60fps • Live", tag: "4K HDR",
+          accent: "#ff0033",
+          meta: "Google TV Official • 4K HDR",
+          desc: "Instant access to your subscriptions, 4K HDR channels, music videos, and live streams.",
+          bg: "https://images.unsplash.com/photo-1611162616475-46b635cb6868?auto=format&fit=crop&w=1600&q=80",
+          actionType: "app", pkg: "com.google.android.youtube.tv", webUrl: "https://www.youtube.com/tv",
+          streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+        },
+        {
+          title: "Netflix", sub: "Dolby Vision", tag: "TOP 10",
+          accent: "#e50914",
+          meta: "Netflix Originals • Dolby Atmos",
+          desc: "Continue watching Stranger Things, Wednesday, Squid Game, and top cinema releases.",
+          bg: "https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?auto=format&fit=crop&w=1600&q=80",
+          actionType: "app", pkg: "com.netflix.ninja", webUrl: "https://www.netflix.com",
+          streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"
+        },
+        {
+          title: "Prime Video", sub: "Amazon Originals", tag: "UHD",
+          accent: "#00a8e1",
+          meta: "Included with Prime • X-Ray",
+          desc: "Stream The Boys, Fallout, Mirzapur, and blockbuster theatrical rentals in UHD.",
+          bg: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=1600&q=80",
+          actionType: "app", pkg: "com.amazon.avod.thirdpartyclient", webUrl: "https://www.primevideo.com",
+          streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4"
+        },
+        {
+          title: "Disney+ Hotstar", sub: "Sports & Marvel", tag: "LIVE",
+          accent: "#1d4ed8",
+          meta: "Live Cricket • Marvel • HBO",
+          desc: "Home of ICC Live Cricket, Premier League, Marvel Studios, and Hotstar Specials.",
+          bg: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?auto=format&fit=crop&w=1600&q=80",
+          actionType: "app", pkg: "in.startv.hotstar", webUrl: "https://www.hotstar.com",
+          streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoy.mp4"
+        },
+        {
+          title: "JioCinema", sub: "IPL & Peacock", tag: "FREE 4K",
+          accent: "#d946ef",
+          meta: "Live Sports • HBO • Blockbusters",
+          desc: "Watch live cricket, HBO originals, and regional blockbusters in 4K.",
+          bg: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=1600&q=80",
+          actionType: "app", pkg: "com.jio.media.stb.ondemand", webUrl: "https://www.jiocinema.com",
+          streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4"
+        }
+      ]
+    },
+    {
+      rowTitle: "TV Inputs & System",
+      cardType: "app-card",
+      items: [
+        {
+          title: "Android Settings", sub: "Wi-Fi, Display & Sound", tag: "SYSTEM",
+          accent: "#10b981", meta: "Mi TV System Configuration",
+          desc: "Open native Android TV settings for Wi-Fi, Bluetooth remotes, display, and apps.",
+          bg: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1600&q=80",
+          actionType: "settings"
+        },
+        {
+          title: "PlayStation 5", sub: "HDMI 1 • 4K 120Hz", tag: "HDMI 1",
+          accent: "#2563eb", meta: "External Input • Game Mode",
+          desc: "Switch to HDMI 1 input with low-latency Game Mode enabled.",
+          bg: "https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?auto=format&fit=crop&w=1600&q=80",
+          actionType: "stream", streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsofSteel.mp4"
+        }
+      ]
+    }
+  ],
+  cinema: [
+    {
+      rowTitle: "IMDb Top Rated — Direct Play or Built-in Theater",
+      cardType: "movie-card",
+      items: [
+        {
+          title: "Tears of Steel", sub: "Sci-Fi • Built-in 4K Player", tag: "IMDb 8.4",
+          accent: "#f59e0b", meta: "2024 • Sci-Fi Action • Full Movie Stream",
+          desc: "In a futuristic Amsterdam, a group of soldiers and scientists attempt to save the world from destructive robots.",
+          bg: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1600&q=80",
+          actionType: "stream",
+          streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsofSteel.mp4"
+        },
+        {
+          title: "Oppenheimer", sub: "Prime Video • IMAX 4K", tag: "IMDb 8.9",
+          accent: "#ea580c", meta: "2023 • Christopher Nolan • 3h 00m",
+          desc: "The story of American scientist J. Robert Oppenheimer and his role in the development of the atomic bomb.",
+          bg: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1600&q=80",
+          actionType: "app", pkg: "com.amazon.avod.thirdpartyclient", webUrl: "https://www.primevideo.com",
+          streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4"
+        },
+        {
+          title: "Stranger Things 5", sub: "Netflix • Dolby Vision", tag: "IMDb 8.7",
+          accent: "#e50914", meta: "Netflix Original • Sci-Fi Horror",
+          desc: "Darkness returns to Hawkins one final time as Eleven and her friends unite to end the Upside Down.",
+          bg: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1600&q=80",
+          actionType: "app", pkg: "com.netflix.ninja", webUrl: "https://www.netflix.com/title/80057281",
+          streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+        },
+        {
+          title: "Sintel: Dragon Blade", sub: "Fantasy • Built-in Stream", tag: "IMDb 8.2",
+          accent: "#dc2626", meta: "Fantasy Adventure • 5.1 Surround",
+          desc: "A lonely young warrior searches the perilous mountain lands for her companion dragon Scales.",
+          bg: "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1600&q=80",
+          actionType: "stream",
+          streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4"
+        }
+      ]
+    }
+  ],
+  sports: [
+    {
+      rowTitle: "Live Arena & Match Center",
+      cardType: "sport-card",
+      items: [
+        {
+          title: "IND 198/3 (19.1) vs AUS", sub: "IND need 6 runs in 5 balls", tag: "LIVE • T20",
+          accent: "#2563eb", meta: "ICC Men's T20 • Live on Hotstar",
+          desc: "Kohli 82*(49) • Hardik 34*(16) — Watch the final over live in 4K 50fps.",
+          bg: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?auto=format&fit=crop&w=1600&q=80",
+          actionType: "app", pkg: "in.startv.hotstar", webUrl: "https://www.hotstar.com",
+          streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+        },
+        {
+          title: "Arsenal 2 - 1 Real Madrid", sub: "Champions League • 81'", tag: "LIVE • UCL",
+          accent: "#16a34a", meta: "UEFA Champions League Quarter-Final",
+          desc: "Saka (34'), Odegaard (67') • Vinicius Jr (52') — High intensity second half at the Emirates.",
+          bg: "https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=1600&q=80",
+          actionType: "stream",
+          streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4"
+        }
+      ]
+    }
+  ],
+  photos: [
+    {
+      rowTitle: "Family Memories & Photo Frame",
+      cardType: "photo-card",
+      items: [
+        {
+          title: "Family Vacation Album", sub: "Manali & Hills • 64 Photos", tag: "ALBUM",
+          accent: "#10b981", meta: "Family Memories • Fullscreen Slideshow",
+          desc: "Press Enter to start the fullscreen Ken Burns ambient family photo slideshow.",
+          bg: "https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&w=1600&q=80",
+          actionType: "ambient"
+        },
+        {
+          title: "Festivals & Celebrations", sub: "Diwali & Weddings • 112 Photos", tag: "FAVORITES",
+          accent: "#f59e0b", meta: "Home Collection • 4K Upscaled",
+          desc: "Golden lights, family gatherings, and celebration portraits.",
+          bg: "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=1600&q=80",
+          actionType: "ambient"
+        },
+        {
+          title: "Mountain Landscapes", sub: "Curated Earth Gallery", tag: "4K ART",
+          accent: "#3b82f6", meta: "World Photography Collection",
+          desc: "Turn your Mi TV into a living picture frame with curated nature photography.",
+          bg: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&q=80",
+          actionType: "ambient"
+        }
+      ]
+    }
+  ]
+};
+
+const AMBIENT_SLIDES = [
+  { img: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=85", loc: "Yosemite Valley, California", author: "Photo by Bailey Zindel" },
+  { img: "https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&w=1920&q=85", loc: "Family Memories Collection", author: "Featured Family Album" },
+  { img: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1920&q=85", loc: "Dolomites Mountain Range, Italy", author: "Photo by Max Rive" },
+  { img: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1920&q=85", loc: "Kyoto Temples, Japan", author: "Photo by Su San Lee" }
+];
+
+let currentTab = 'home';
+let focusZone = 'cards'; // 'nav', 'hero', 'cards', 'player'
+let navIdx = 0;
+let heroIdx = 0;
+let rowIdx = 0;
+let colIdx = 0;
+let playerIdx = 0;
+let activeItem = DATA.home[0].items[0];
+let ambientIdx = 0;
+let ambientTimer = null;
+let idleCounter = 0;
+
+// Update Clock
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// Launch Android TV App or Fallback
+function triggerAction(item, forceStream = false) {
+  if (!item) return;
+  if (forceStream || item.actionType === 'stream') {
+    openCinemaPlayer(item.title, item.streamUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsofSteel.mp4");
+    return;
+  }
+  if (item.actionType === 'ambient') {
+    startAmbientMode();
+    return;
+  }
+  if (item.actionType === 'settings') {
+    window.location.href = "intent:#Intent;action=android.settings.SETTINGS;end";
+    return;
+  }
+  if (item.actionType === 'app' && item.pkg) {
+    // Native Android TV Leanback Intent URI
+    const intentUrl = `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LEANBACK_LAUNCHER;package=${item.pkg};S.browser_fallback_url=${encodeURIComponent(item.webUrl)};end`;
+    window.location.href = intentUrl;
+  }
+}
+
+// Render Current Tab Rows
+function renderTab(tabKey) {
+  currentTab = tabKey;
+  document.querySelectorAll('.nav-tab').forEach(btn => {
+    btn.classList.toggle('active-tab', btn.dataset.tab === tabKey);
+  });
+
+  const container = document.getElementById('rows-container');
+  container.innerHTML = '';
+  const rows = DATA[tabKey] || [];
+
+  rows.forEach((r, rIndex) => {
+    const sec = document.createElement('div');
+    sec.className = 'row-section';
+    sec.innerHTML = `<div class="row-header">${r.rowTitle}</div>`;
+    const track = document.createElement('div');
+    track.className = 'cards-track';
+
+    r.items.forEach((item, cIndex) => {
+      const card = document.createElement('div');
+      card.className = `tv-card ${r.cardType}`;
+      card.dataset.r = rIndex;
+      card.dataset.c = cIndex;
+      card.innerHTML = `
+        <img class="card-bg" src="${item.bg}" alt="${item.title}">
+        <span class="card-tag ${item.tag.includes('LIVE') ? 'live' : ''}">${item.tag}</span>
+        <div class="card-overlay">
+          <div class="card-title">${item.title}</div>
+          <div class="card-sub">${item.sub}</div>
+        </div>
+      `;
+      card.addEventListener('click', () => {
+        focusZone = 'cards';
+        rowIdx = rIndex;
+        colIdx = cIndex;
+        applyFocus();
+        triggerAction(item, false);
+      });
+      track.appendChild(card);
+    });
+    sec.appendChild(track);
+    container.appendChild(sec);
+  });
+
+  rowIdx = 0;
+  colIdx = 0;
+  updateHero(rows[0].items[0]);
+  applyFocus();
+}
+
+// Update Hero Stage & Background Fanart
+function updateHero(item) {
+  if (!item) return;
+  activeItem = item;
+  document.documentElement.style.setProperty('--accent', item.accent || '#e50914');
+  document.documentElement.style.setProperty('--accent-glow', (item.accent || '#e50914') + '88');
+  document.getElementById('fanart-bg').style.backgroundImage = `url('${item.bg}')`;
+  document.getElementById('hero-badge').innerText = item.tag || 'FEATURED';
+  document.getElementById('hero-meta').innerText = item.meta || '';
+  document.getElementById('hero-title').innerText = item.title;
+  document.getElementById('hero-desc').innerText = item.desc;
+
+  const primaryBtn = document.getElementById('hero-btn-primary');
+  if (item.actionType === 'stream') {
+    primaryBtn.innerText = '▶ Play Movie in Theater';
+  } else if (item.actionType === 'ambient') {
+    primaryBtn.innerText = '🖼 Start Photo Frame';
+  } else {
+    primaryBtn.innerText = `▶ Open ${item.title}`;
+  }
+}
+
+// Highlight Focused Element
+function applyFocus() {
+  document.querySelectorAll('.focused').forEach(el => el.classList.remove('focused'));
+
+  if (focusZone === 'nav') {
+    const navItems = [...document.querySelectorAll('.nav-tab'), document.getElementById('btn-ambient')];
+    const target = navItems[navIdx];
+    if (target) {
+      target.classList.add('focused');
+      if (target.dataset.tab && target.dataset.tab !== currentTab) {
+        renderTab(target.dataset.tab);
+        focusZone = 'nav';
+        target.classList.add('focused');
+      }
+    }
+  } else if (focusZone === 'hero') {
+    const btns = [document.getElementById('hero-btn-primary'), document.getElementById('hero-btn-trailer')];
+    if (btns[heroIdx]) btns[heroIdx].classList.add('focused');
+  } else if (focusZone === 'cards') {
+    const rows = DATA[currentTab];
+    if (!rows || !rows[rowIdx]) return;
+    const item = rows[rowIdx].items[colIdx];
+    updateHero(item);
+    const cardEl = document.querySelector(`.tv-card[data-r="${rowIdx}"][data-c="${colIdx}"]`);
+    if (cardEl) {
+      cardEl.classList.add('focused');
+      cardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  } else if (focusZone === 'player') {
+    const pBtns = document.querySelectorAll('.player-btn');
+    if (pBtns[playerIdx]) pBtns[playerIdx].classList.add('focused');
+  }
+}
+
+// Built-in Video Player Functions
+const playerModal = document.getElementById('player-modal');
+const videoEl = document.getElementById('cinema-video');
+
+function openCinemaPlayer(title, url) {
+  document.getElementById('player-title').innerText = title;
+  videoEl.src = url;
+  playerModal.classList.add('open');
+  videoEl.play().catch(() => {});
+  focusZone = 'player';
+  playerIdx = 0;
+  applyFocus();
+}
+
+function closeCinemaPlayer() {
+  videoEl.pause();
+  videoEl.src = "";
+  playerModal.classList.remove('open');
+  focusZone = 'cards';
+  applyFocus();
+}
+
+document.getElementById('p-toggle').onclick = () => {
+  if (videoEl.paused) { videoEl.play(); document.getElementById('p-toggle').innerText = '⏸ Pause'; }
+  else { videoEl.pause(); document.getElementById('p-toggle').innerText = '▶ Play'; }
+};
+document.getElementById('p-rew').onclick = () => { videoEl.currentTime = Math.max(0, videoEl.currentTime - 10); };
+document.getElementById('p-fwd').onclick = () => { videoEl.currentTime += 10; };
+document.getElementById('p-close').onclick = closeCinemaPlayer;
+
+// Hero Button Clicks
+document.getElementById('hero-btn-primary').onclick = () => triggerAction(activeItem, false);
+document.getElementById('hero-btn-trailer').onclick = () => triggerAction(activeItem, true);
+document.getElementById('btn-ambient').onclick = startAmbientMode;
+
+// Nav Clicks
+document.querySelectorAll('.nav-tab').forEach((btn, idx) => {
+  btn.addEventListener('click', () => {
+    navIdx = idx;
+    renderTab(btn.dataset.tab);
+  });
+});
+
+// Ambient Art Mode
+const ambientModal = document.getElementById('ambient-modal');
+function updateAmbientSlide() {
+  const s = AMBIENT_SLIDES[ambientIdx % AMBIENT_SLIDES.length];
+  document.getElementById('ambient-img').src = s.img;
+  document.getElementById('ambient-loc').innerText = s.loc;
+  document.getElementById('ambient-author').innerText = s.author + " • Press any key to wake";
+}
+function startAmbientMode() {
+  ambientIdx = 0;
+  updateAmbientSlide();
+  ambientModal.classList.add('open');
+  clearInterval(ambientTimer);
+  ambientTimer = setInterval(() => {
+    ambientIdx++;
+    updateAmbientSlide();
+  }, 10000);
+}
+function stopAmbientMode() {
+  ambientModal.classList.remove('open');
+  clearInterval(ambientTimer);
+}
+
+// D-Pad Remote Key Handler
+window.addEventListener('keydown', (e) => {
+  idleCounter = 0;
+  if (ambientModal.classList.contains('open')) {
+    e.preventDefault();
+    stopAmbientMode();
+    return;
+  }
+
+  const key = e.key;
+  if (focusZone === 'player') {
+    const pBtns = document.querySelectorAll('.player-btn');
+    if (key === 'ArrowRight') { playerIdx = Math.min(pBtns.length - 1, playerIdx + 1); applyFocus(); }
+    else if (key === 'ArrowLeft') { playerIdx = Math.max(0, playerIdx - 1); applyFocus(); }
+    else if (key === 'Enter') { pBtns[playerIdx].click(); }
+    else if (key === 'Escape' || key === 'Backspace') { closeCinemaPlayer(); }
+    return;
+  }
+
+  const rows = DATA[currentTab];
+  if (key === 'ArrowUp') {
+    e.preventDefault();
+    if (focusZone === 'cards') {
+      if (rowIdx > 0) {
+        rowIdx--;
+        colIdx = Math.min(colIdx, rows[rowIdx].items.length - 1);
+      } else {
+        focusZone = 'hero';
+        heroIdx = 0;
+      }
+    } else if (focusZone === 'hero') {
+      focusZone = 'nav';
+    }
+    applyFocus();
+  } else if (key === 'ArrowDown') {
+    e.preventDefault();
+    if (focusZone === 'nav') {
+      focusZone = 'hero';
+      heroIdx = 0;
+    } else if (focusZone === 'hero') {
+      focusZone = 'cards';
+      rowIdx = 0;
+      colIdx = 0;
+    } else if (focusZone === 'cards' && rowIdx < rows.length - 1) {
+      rowIdx++;
+      colIdx = Math.min(colIdx, rows[rowIdx].items.length - 1);
+    }
+    applyFocus();
+  } else if (key === 'ArrowRight') {
+    e.preventDefault();
+    if (focusZone === 'nav') {
+      navIdx = Math.min(4, navIdx + 1);
+    } else if (focusZone === 'hero') {
+      heroIdx = Math.min(1, heroIdx + 1);
+    } else if (focusZone === 'cards') {
+      colIdx = Math.min(rows[rowIdx].items.length - 1, colIdx + 1);
+    }
+    applyFocus();
+  } else if (key === 'ArrowLeft') {
+    e.preventDefault();
+    if (focusZone === 'nav') {
+      navIdx = Math.max(0, navIdx - 1);
+    } else if (focusZone === 'hero') {
+      heroIdx = Math.max(0, heroIdx - 1);
+    } else if (focusZone === 'cards') {
+      colIdx = Math.max(0, colIdx - 1);
+    }
+    applyFocus();
+  } else if (key === 'Enter') {
+    e.preventDefault();
+    if (focusZone === 'nav') {
+      const navItems = [...document.querySelectorAll('.nav-tab'), document.getElementById('btn-ambient')];
+      navItems[navIdx].click();
+    } else if (focusZone === 'hero') {
+      const btns = [document.getElementById('hero-btn-primary'), document.getElementById('hero-btn-trailer')];
+      btns[heroIdx].click();
+    } else if (focusZone === 'cards') {
+      triggerAction(rows[rowIdx].items[colIdx], false);
+    }
+  }
+});
+
+// Idle Auto-Screensaver (60s)
+setInterval(() => {
+  idleCounter++;
+  if (idleCounter >= 60 && !playerModal.classList.contains('open') && !ambientModal.classList.contains('open')) {
+    startAmbientMode();
+  }
+}, 1000);
+
+// Initialize
+renderTab('home');
+</script>
+</body>
+</html>
