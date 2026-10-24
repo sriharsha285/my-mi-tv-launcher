@@ -1,0 +1,52 @@
+name: Build TV Launcher APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Initialize Capacitor Project
+        run: |
+          mkdir www
+          cp index.html www/
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init "MyTVLauncher" "com.custom.mitvlauncher" --web-dir www
+          npx cap add android
+
+      - name: Configure Android TV Launcher Permissions
+        run: |
+          sed -i '/<category android:name="android.intent.category.LAUNCHER" \/>/a \                <category android:name="android.intent.category.LEANBACK_LAUNCHER" \/>\n                <category android:name="android.intent.category.HOME" \/>\n                <category android:name="android.intent.category.DEFAULT" \/>' android/app/src/main/AndroidManifest.xml
+
+      - name: Build Debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MiTVLauncher-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
